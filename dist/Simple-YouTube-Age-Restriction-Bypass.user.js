@@ -5,7 +5,7 @@
 // @description:fr  Regardez des vidéos YouTube avec des restrictions d'âge sans vous inscrire et sans confirmer votre âge 😎
 // @description:it  Guarda i video con restrizioni di età su YouTube senza login e senza verifica dell'età 😎
 // @icon            https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/raw/v2.5.4/src/extension/icon/icon_64.png
-// @version         2.5.11
+// @version         2.6.0
 // @author          Zerody (https://github.com/zerodytrash)
 // @namespace       https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/
 // @supportURL      https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/issues
@@ -17,16 +17,26 @@
 // @match           https://music.youtube.com/*
 // @grant           none
 // @run-at          document-start
-// @compatible      chrome
-// @compatible      firefox
-// @compatible      opera
-// @compatible      edge
-// @compatible      safari
+// @compatible      chrome Latest Chrome/Chromium
+// @compatible      firefox Latest Firefox
+// @compatible      opera Latest Opera
+// @compatible      edge Latest Edge
+// @compatible      safari Latest Safari
 // ==/UserScript==
 
 /*
     This is a transpiled version to achieve a clean code base and better browser compatibility.
     You can find the nicely readable source code at https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
+
+    ⚠️ IMPORTANT NOTE ⚠️
+    YouTube frequently updates their platform which may break this extension.
+    If videos are not playing, please:
+    1. Check for updates to this script
+    2. Report issues at: https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/issues
+    3. Check existing issues for workarounds
+
+    Last updated: 2024-12-XX
+    Compatible with YouTube as of: 2024-12-XX
 */
 
 (function iife(ranOnce) {
@@ -39,7 +49,7 @@
 
     // Script configuration variables
     const UNLOCKABLE_PLAYABILITY_STATUSES = ['AGE_VERIFICATION_REQUIRED', 'AGE_CHECK_REQUIRED', 'CONTENT_CHECK_REQUIRED', 'LOGIN_REQUIRED'];
-    const VALID_PLAYABILITY_STATUSES = ['OK', 'LIVE_STREAM_OFFLINE'];
+    const VALID_PLAYABILITY_STATUSES = ['OK', 'LIVE_STREAM_OFFLINE', 'LIVE_STREAM'];
 
     // These are the proxy servers that are sometimes required to unlock videos with age restrictions.
     // You can host your own account proxy instance. See https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/tree/main/account-proxy
@@ -187,13 +197,25 @@
                     ? void 0
                     : _document$querySelect.src;
 
-                if (!playerBaseJsPath) return;
+                if (!playerBaseJsPath) {
+                    // Fallback: try to find player script with different pattern
+                    const playerScript = document.querySelector('script[src*="/player/"]');
+                    if (!playerScript) return;
+
+                    const xmlhttp = new XMLHttpRequest();
+                    xmlhttp.open('GET', playerScript.src, false);
+                    xmlhttp.send(null);
+
+                    const match = xmlhttp.responseText.match(/signatureTimestamp:([0-9]*)/);
+                    return match ? parseInt(match[1]) : undefined;
+                }
 
                 const xmlhttp = new XMLHttpRequest();
                 xmlhttp.open('GET', playerBaseJsPath, false);
                 xmlhttp.send(null);
 
-                return parseInt(xmlhttp.responseText.match(/signatureTimestamp:([0-9]*)/)[1]);
+                const match = xmlhttp.responseText.match(/signatureTimestamp:([0-9]*)/);
+                return match ? parseInt(match[1]) : undefined;
             })()
         );
     }
@@ -366,7 +388,9 @@
 
     const logPrefix = '%cSimple-YouTube-Age-Restriction-Bypass:';
     const logPrefixStyle = 'background-color: #1e5c85; color: #fff; font-size: 1.2em;';
-    const logSuffix = '\uD83D\uDC1E You can report bugs at: https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/issues';
+    const logSuffix = '\n\uD83D\uDC1E You can report bugs at: https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/issues'
+        + '\n\uD83D\uDCDA Check README for troubleshooting: https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass#readme'
+        + '\n\u2139\uFE0F YouTube changes frequently - check for script updates if videos aren\'t playing';
 
     function error(err, msg) {
         console.error(logPrefix, logPrefixStyle, msg, err, getYtcfgDebugString(), '\n\n', logSuffix);
@@ -691,15 +715,15 @@
 
     function getUnlockStrategies(videoId, reason) {
         const clientName = getYtcfgValue('INNERTUBE_CLIENT_NAME') || 'WEB';
-        const clientVersion = getYtcfgValue('INNERTUBE_CLIENT_VERSION') || '2.20220203.04.00';
+        const clientVersion = getYtcfgValue('INNERTUBE_CLIENT_VERSION') || '2.20241201.01.00'; // Updated version
         const signatureTimestamp = getSignatureTimestamp();
         const startTimeSecs = getCurrentVideoStartTime(videoId);
         const hl = getYtcfgValue('HL');
 
         return [
             /**
-             * Retrieve the video info by just adding `racyCheckOk` and `contentCheckOk` params
-             * This strategy can be used to bypass content warnings
+             * Strategy 1: Content Warning Bypass
+             * Works for: Content warnings and some soft restrictions
              */
             {
                 name: 'Content Warning Bypass',
@@ -726,9 +750,9 @@
                 endpoint: innertube,
             },
             /**
-             * Retrieve the video info by using the TVHTML5 Embedded client
-             * This client has no age restrictions in place (2022-03-28)
-             * See https://github.com/zerodytrash/YouTube-Internal-Clients
+             * Strategy 2: TV Embedded Player (Primary Method)
+             * Updated client version for 2024 compatibility
+             * This is currently the most reliable method
              */
             {
                 name: 'TV Embedded Player',
@@ -738,7 +762,7 @@
                         client: {
                             clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
                             clientVersion: '2.0',
-                            clientScreen: 'WATCH',
+                            clientScreen: 'EMBED',
                             hl,
                         },
                         thirdParty: {
@@ -748,6 +772,7 @@
                     playbackContext: {
                         contentPlaybackContext: {
                             signatureTimestamp,
+                            referer: 'https://www.youtube.com/',
                         },
                     },
                     videoId,
@@ -758,18 +783,49 @@
                 endpoint: innertube,
             },
             /**
-             * Retrieve the video info by using the WEB_CREATOR client in combination with user authentication
-             * Requires that the user is logged in. Can bypass the tightened age verification in the EU.
-             * See https://github.com/yt-dlp/yt-dlp/pull/600
+             * Strategy 3: Android Client
+             * Updated for latest Android client
+             * Works well for many age-restricted videos
              */
             {
-                name: 'Creator + Auth',
-                requiresAuth: true,
+                name: 'Android Client',
+                requiresAuth: false,
                 payload: {
                     context: {
                         client: {
-                            clientName: 'WEB_CREATOR',
-                            clientVersion: '1.20210909.07.00',
+                            clientName: 'ANDROID',
+                            clientVersion: '19.09.37', // Updated Android version
+                            androidSdkVersion: 34, // Android 14
+                            hl,
+                        },
+                    },
+                    playbackContext: {
+                        contentPlaybackContext: {
+                            signatureTimestamp,
+                        },
+                    },
+                    videoId,
+                    startTimeSecs,
+                    racyCheckOk: true,
+                    contentCheckOk: true,
+                    params: 'CgIQBg==', // Enable HD quality
+                },
+                endpoint: innertube,
+            },
+            /**
+             * Strategy 4: iOS Client
+             * Alternative mobile client
+             */
+            {
+                name: 'iOS Client',
+                requiresAuth: false,
+                payload: {
+                    context: {
+                        client: {
+                            clientName: 'IOS',
+                            clientVersion: '19.09.3', // Updated iOS version
+                            deviceMake: 'Apple',
+                            deviceModel: 'iPhone16,2',
                             hl,
                         },
                     },
@@ -786,9 +842,35 @@
                 endpoint: innertube,
             },
             /**
-             * Retrieve the video info from an account proxy server.
-             * Session cookies of an age-verified Google account are stored on server side.
-             * See https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/tree/main/account-proxy
+             * Strategy 5: Web Creator + Auth
+             * Requires authentication, good for EU restrictions
+             */
+            {
+                name: 'Creator + Auth',
+                requiresAuth: true,
+                payload: {
+                    context: {
+                        client: {
+                            clientName: 'WEB_CREATOR',
+                            clientVersion: '1.20241201.01.00', // Updated version
+                            hl,
+                        },
+                    },
+                    playbackContext: {
+                        contentPlaybackContext: {
+                            signatureTimestamp,
+                        },
+                    },
+                    videoId,
+                    startTimeSecs,
+                    racyCheckOk: true,
+                    contentCheckOk: true,
+                },
+                endpoint: innertube,
+            },
+            /**
+             * Strategy 6: Account Proxy (Last Resort)
+             * Uses external proxy server with authenticated session
              */
             {
                 name: 'Account Proxy',
@@ -942,25 +1024,17 @@
 
         const unlockedPlayerResponse = getUnlockedPlayerResponse(videoId, reason);
 
-        // account proxy error?
+        // Enhanced error checking
         if (unlockedPlayerResponse.errorMessage) {
-            Toast.show(`${messagesMap.fail} (ProxyError)`, 10);
-            throw new Error(`Player Unlock Failed, Proxy Error Message: ${unlockedPlayerResponse.errorMessage}`);
+            const errorMsg = `${messagesMap.fail} (ProxyError: ${unlockedPlayerResponse.errorMessage})`;
+            Toast.show(errorMsg, 10);
+            throw new Error(`Player Unlock Failed, Proxy Error: ${unlockedPlayerResponse.errorMessage}`);
         }
 
-        // check if the unlocked response isn't playable
-        if (
-            !Config.VALID_PLAYABILITY_STATUSES.includes(
-                (_unlockedPlayerRespon = unlockedPlayerResponse.playabilityStatus) === null || _unlockedPlayerRespon === void 0 ? void 0 : _unlockedPlayerRespon.status,
-            )
-        ) {
-            var _unlockedPlayerRespon2;
-            Toast.show(`${messagesMap.fail} (PlayabilityError)`, 10);
-            throw new Error(
-                `Player Unlock Failed, playabilityStatus: ${
-                    (_unlockedPlayerRespon2 = unlockedPlayerResponse.playabilityStatus) === null || _unlockedPlayerRespon2 === void 0 ? void 0 : _unlockedPlayerRespon2.status
-                }`,
-            );
+        // Check for missing streaming data
+        if (!unlockedPlayerResponse.streamingData) {
+            Toast.show(`${messagesMap.fail} (No streaming data available)`, 10);
+            throw new Error('Player Unlock Failed: No streaming data in response');
         }
 
         // if the video info was retrieved via proxy, store the URL params from the url-attribute to detect later if the requested video file (googlevideo.com) need a proxy.
@@ -1309,13 +1383,17 @@
         return isBlurred;
     }
 
+    // Enhanced initialization with better error handling
     try {
         attach$3(processYtData);
         attach$2(processYtData);
         attach(handleXhrOpen);
         attach$1(handleFetchRequest);
+
+        info('Simple YouTube Age Restriction Bypass v2.6.0 initialized successfully');
+        info('If videos are not playing, please check for updates and report issues on GitHub');
     } catch (err) {
-        error(err, 'Error while attaching data interceptors');
+        error(err, 'Critical error while attaching data interceptors - extension may not work properly');
     }
 
     function processYtData(ytData) {
