@@ -5,14 +5,14 @@
   "version": "2.6.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass.git"
+    "url": "git+https://github.com/TheDoctor200/Simple-YouTube-Age-Restriction-Bypass.git"
   },
   "author": "zerody",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/issues"
+    "url": "https://github.com/TheDoctor200/Simple-YouTube-Age-Restriction-Bypass/issues"
   },
-  "homepage": "https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass#readme",
+  "homepage": "https://github.com/TheDoctor200/Simple-YouTube-Age-Restriction-Bypass#readme",
   "main": "dist/Simple-YouTube-Age-Restriction-Bypass.user.js",
   "files": [
     "dist/Simple-YouTube-Age-Restriction-Bypass.user.js"

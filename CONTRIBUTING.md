@@ -22,7 +22,7 @@ YouTube frequently updates their platform, which breaks age restriction bypass m
 ### Installation
 
 ```bash
-git clone https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass.git
+git clone https://github.com/TheDoctor200/Simple-YouTube-Age-Restriction-Bypass.git
 cd Simple-YouTube-Age-Restriction-Bypass
 npm install
 ```
